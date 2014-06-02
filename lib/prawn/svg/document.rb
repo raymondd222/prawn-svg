@@ -8,18 +8,15 @@ class Prawn::Svg::Document
     CSS_PARSER_LOADED = false
   end
 
-  DEFAULT_WIDTH  = 640
-  DEFAULT_HEIGHT = 480
   DEFAULT_FALLBACK_FONT_NAME = "Times-Roman"
 
   # An +Array+ of warnings that occurred while parsing the SVG data.
   attr_reader :warnings
-
-  # The scaling factor, as determined by the :width or :height options.
-  attr_accessor :scale
+  attr_writer :url_cache
 
   attr_reader :root,
-    :actual_width, :actual_height, :width, :height, :x_offset, :y_offset,
+    :x_offset, :y_offset, :x_scale, :y_scale,
+    :output_width, :output_height,
     :cache_images, :fallback_font_name,
     :css_parser, :elements_by_id
 
@@ -32,54 +29,91 @@ class Prawn::Svg::Document
     @elements_by_id = {}
     @cache_images = options[:cache_images]
     @fallback_font_name = options.fetch(:fallback_font_name, DEFAULT_FALLBACK_FONT_NAME)
-    @actual_width, @actual_height = bounds # set this first so % width/heights can be used
+    @x_offset = @y_offset = 0
+    @x_scale = @y_scale = 1
 
-    if vb = @root.attributes['viewBox']
-      values = vb.strip.split(/\s+/)
-      @x_offset, @y_offset, @actual_width, @actual_height = values.map {|value| value.to_f}
-    else
-      @x_offset, @y_offset = [0, 0]
-      @actual_width = points(@root.attributes['width'] || DEFAULT_WIDTH, :x)
-      @actual_height = points(@root.attributes['height'] || DEFAULT_HEIGHT, :y)
+    if viewbox = @root.attributes['viewBox']
+      values = viewbox.strip.split(/\s+/)
+      @x_offset, @y_offset, @viewport_width, @viewport_height = values.map {|value| value.to_f}
+      @x_offset = -@x_offset
     end
+
+    width = points(@root.attributes['width'], bounds[0])
+    height = points(@root.attributes['height'], bounds[1])
+
+    defaultPreserveAspectRatio = "x#{width ? "Mid" : "Min"}Y#{height ? "Mid" : "Min"} meet"
+
+    width ||= bounds[0]
+    height ||= bounds[1]
+
+    if viewbox
+      preserveAspectRatio = @root.attributes['preserveAspectRatio'] || defaultPreserveAspectRatio
+      aspect = Prawn::Svg::Calculators::AspectRatio.new(preserveAspectRatio, [width, height], [@viewport_width, @viewport_height])
+      @x_scale = aspect.width / @viewport_width
+      @y_scale = aspect.height / @viewport_height
+      @x_offset -= aspect.x
+      @y_offset += aspect.y
+    end
+
+    @viewport_width ||= width
+    @viewport_height ||= height
 
     if @options[:width]
-      @width = @options[:width]
-      @scale = @options[:width] / @actual_width.to_f
+      scale = @options[:width] / width
+      width = @options[:width]
+      height *= scale
+      @x_scale *= scale
+      @y_scale *= scale
+
     elsif @options[:height]
-      @height = @options[:height]
-      @scale = @options[:height] / @actual_height.to_f
-    else
-      @scale = 1
+      scale = @options[:height] / height
+      height = @options[:height]
+      width *= scale
+      @x_scale *= scale
+      @y_scale *= scale
     end
 
-    @width ||= @actual_width * @scale
-    @height ||= @actual_height * @scale
+    @output_width = width
+    @output_height = height
+
+    yield self if block_given?
   end
 
   def x(value)
-    (points(value, :x) - @x_offset) * scale
+    points(value, :x)
   end
 
   def y(value)
-    (@actual_height - (points(value, :y) - @y_offset)) * scale
+    @output_height - points(value, :y)
   end
 
   def distance(value, axis = nil)
-    value && (points(value, axis) * scale)
+    value && points(value, axis)
   end
 
   def points(value, axis = nil)
     if value.is_a?(String)
       if match = value.match(/\d(cm|dm|ft|in|m|mm|yd)$/)
         send("#{match[1]}2pt", value.to_f)
+      elsif match = value.match(/\dpc$/)
+        value.to_f * 15 # according to http://www.w3.org/TR/SVG11/coords.html
       elsif value[-1..-1] == "%"
-        value.to_f * (axis == :y ? @actual_height : @actual_width) / 100.0
+        length = case axis
+                 when :x, nil then @viewport_width
+                 when :y      then @viewport_height
+                 else              axis
+                 end
+
+        value.to_f * length / 100.0
       else
         value.to_f
       end
-    else
+    elsif value
       value.to_f
     end
+  end
+
+  def url_loader
+    @url_loader ||= Prawn::Svg::UrlLoader.new(:enable_cache => cache_images)
   end
 end

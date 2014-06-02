@@ -24,7 +24,7 @@ module Prawn
       # +options+ can optionally contain the key :width or :height.  If both are
       # specified, only :width will be used.
       #
-      def initialize(data, prawn, options)
+      def initialize(data, prawn, options, &block)
         @data = data
         @prawn = prawn
         @options = options
@@ -33,16 +33,16 @@ module Prawn
 
         Prawn::Svg::Font.load_external_fonts(prawn.font_families)
 
-        @document = Document.new(data, [prawn.bounds.width, prawn.bounds.height], options)
+        @document = Document.new(data, [prawn.bounds.width, prawn.bounds.height], options, &block)
       end
 
       #
       # Draws the SVG to the Prawn::Document object.
       #
       def draw
-        prawn.bounding_box(@options[:at], :width => @document.width, :height => @document.height) do
+        prawn.bounding_box(@options[:at], :width => @document.output_width, :height => @document.output_height) do
           prawn.save_graphics_state do
-            clip_rectangle 0, 0, @document.width, @document.height
+            clip_rectangle 0, 0, @document.output_width, @document.output_height
             proc_creator(prawn, Parser.new(@document).parse).call
           end
         end

@@ -14,14 +14,16 @@ describe Prawn::Svg::Document do
       @document.send(:points, "32pt").should == 32.0      
       @document.send(:points, "32in").should == 32.0 * 72
       @document.send(:points, "32ft").should == 32.0 * 72 * 12
+      @document.send(:points, "32pc").should == 32.0 * 15
       @document.send(:points, "32mm").should be_within(0.0001).of(32 * 72 * 0.0393700787)
       @document.send(:points, "32cm").should be_within(0.0001).of(32 * 72 * 0.393700787)
       @document.send(:points, "32m").should be_within(0.0001).of(32 * 72 * 39.3700787)
       
-      @document.send :instance_variable_set, "@actual_width", 600
-      @document.send :instance_variable_set, "@actual_height", 400
+      @document.send :instance_variable_set, "@viewport_width", 600
+      @document.send :instance_variable_set, "@viewport_height", 400
       @document.send(:points, "50%").should == 300
       @document.send(:points, "50%", :y).should == 200
+      @document.send(:points, "50%", 120).should == 60
     end
   end
 end

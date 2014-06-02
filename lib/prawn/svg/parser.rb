@@ -42,6 +42,19 @@ class Prawn::Svg::Parser
     @document.warnings.clear
 
     calls = [['fill_color', '000000', []]]
+
+    calls << [
+      'transformation_matrix',
+      [@document.x_scale, 0, 0, @document.y_scale, 0, 0],
+      []
+    ]
+
+    calls << [
+      'transformation_matrix',
+      [1, 0, 0, 1, @document.x_offset, @document.y_offset],
+      []
+    ]
+
     root_element = Prawn::Svg::Element.new(@document, @document.root, calls, :ids => {}, :fill => true)
 
     parse_element(root_element)
