@@ -34,7 +34,7 @@ class Prawn::Svg::Parser::Text
 
     element.element.children.each do |child|
       if child.node_type == :text
-        text = child.value.strip.gsub(/\s+/, " ")
+        text = child.value
 
         while text != ""
           opts[:at] = [x_positions.first, y_positions.first]
