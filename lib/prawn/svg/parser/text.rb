@@ -25,6 +25,11 @@ class Prawn::Svg::Parser::Text
       opts[:size] = size
     end
     opts[:style] = element.state[:font_subfamily]
+    if letter_spacing = element.attributes['letter-spacing']
+      opts[:letter_spacing] = letter_spacing.to_i
+    else
+      opts[:letter_spacing] = 0
+    end
 
     # This is not a prawn option but we can't work out how to render it here -
     # it's handled by Svg#rewrite_call_arguments
@@ -36,22 +41,30 @@ class Prawn::Svg::Parser::Text
       if child.node_type == :text
         text = child.value
 
-        while text != ""
-          opts[:at] = [x_positions.first, y_positions.first]
+        if letter_spacing && letter_spacing.to_i != 0
+          for i in 0..text.length-1
+            opts[:at] = [x_positions.first, y_positions.first]
+            element.add_call i > 0 ? 'relative_draw_text' : 'draw_text', text[i], opts.dup
+          end
 
-          if x_positions.length > 1 || y_positions.length > 1
-            element.add_call 'draw_text', text[0..0], opts.dup
-            text = text[1..-1]
+        else
 
-            x_positions.shift if x_positions.length > 1
-            y_positions.shift if y_positions.length > 1
-          else
-            element.add_call relative ? 'relative_draw_text' : 'draw_text', text, opts.dup
-            relative = true
-            break
+          while text != ""
+            opts[:at] = [x_positions.first, y_positions.first]
+
+            if x_positions.length > 1 || y_positions.length > 1
+              element.add_call 'draw_text', text[0..0], opts.dup
+              text = text[1..-1]
+
+              x_positions.shift if x_positions.length > 1
+              y_positions.shift if y_positions.length > 1
+            else
+              element.add_call relative ? 'relative_draw_text' : 'draw_text', text, opts.dup
+              relative = true
+              break
+            end
           end
         end
-
       elsif child.name == "tspan"
         element.add_call 'save'
         child.attributes['text-anchor'] ||= opts[:text_anchor] if opts[:text_anchor]
