@@ -27,8 +27,6 @@ class Prawn::Svg::Parser::Text
     opts[:style] = element.state[:font_subfamily]
     if letter_spacing = element.attributes['letter-spacing']
       opts[:letter_spacing] = letter_spacing.to_i
-    else
-      opts[:letter_spacing] = 0
     end
 
     # This is not a prawn option but we can't work out how to render it here -

@@ -93,7 +93,9 @@ module Prawn
             options[:at][0] -= width
           end
 
-          space_width = options[:letter_spacing]
+          unless space_width = options[:letter_spacing]
+            space_width = prawn.width_of("n", options)
+          end
           @relative_text_position = options[:at][0] + width + space_width
 
         when 'transformation_matrix'
